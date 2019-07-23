@@ -108,7 +108,7 @@ class CryProcessor:
             #perform hmmsearch 
 
             cmd_search = subprocess.call('{0} \
-                                          --cpu {1} \
+                                          -E 50 --nonull2 --max --incE 250 --domZ 0.1 --cpu {1} \
                                           -A {2} \
                                           {3} \
                                           {4} >> {5}'.format(os.path.join(
@@ -175,7 +175,7 @@ class CryProcessor:
                                             shell=True)
 
             cmd_search = subprocess.call('{0} \
-                                          --cpu {1} \
+                                          -E 50 --nonull2 --max --incE 250 --domZ 0.1  --cpu {1} \
                                           -A {2} \
                                           {3} \
                                           {4} >> {5}'.format(
@@ -283,6 +283,61 @@ class CryProcessor:
                            'domains_extraction', 
                             self.hm_threads, 
                             self.query_dir)
+        self.run_hmmer(str(qiuery),
+                           '_cry31.sto',
+                           'cry31.hmm',
+                           'domains',
+                           'domains_extraction', 
+                            self.hm_threads, 
+                            self.query_dir)
+        self.run_hmmer(str(qiuery),
+                           '_Endotoxin_M.sto',
+                           'Endotoxin_M.hmm',
+                           'domains',
+                           'domains_extraction', 
+                            self.hm_threads, 
+                            self.query_dir)
+        self.run_hmmer(str(qiuery),
+                           '_Endotoxin_mid.sto',
+                           'Endotoxin_mid.hmm',
+                           'domains',
+                           'domains_extraction', 
+                            self.hm_threads, 
+                            self.query_dir)
+
+        mearging_cmd = subprocess.call('if [ -s {0} ] && [ -s {1} ] && [ -s {2} ] && [ -s {3} ];\
+                                         then cat {0} {1} {2} {3} > tmp_2.fasta; \
+                                         mv tmp_2.fasta {3}; rm tmp_2.fasta;   \
+                                         fi'.format(os.path.join(
+                                         os.path.realpath(
+                                         self.query_dir),
+                                         'cry_extraction',
+                                         'domains',
+                                         self.cry_query.split('/')[len(self.cry_query.split('/'))-1].split('.')[0]+ 
+                                         '_Endotoxin_mid.fasta'),
+                                         os.path.join(
+                                         os.path.realpath(
+                                         self.query_dir),
+                                         'cry_extraction',
+                                         'domains',
+                                         self.cry_query.split('/')[len(self.cry_query.split('/'))-1].split('.')[0]+ 
+                                         '_Endotoxin_M.fasta'),
+                                         os.path.join(
+                                         os.path.realpath(
+                                         self.query_dir),
+                                         'cry_extraction',
+                                         'domains',
+                                         self.cry_query.split('/')[len(self.cry_query.split('/'))-1].split('.')[0]+ 
+                                         '_cry31.fasta'),
+                                         os.path.join(
+                                         os.path.realpath(
+                                         self.query_dir),
+                                         'cry_extraction',
+                                         'domains',
+                                         self.cry_query.split('/')[len(self.cry_query.split('/'))-1].split('.')[0]+ 
+                                         '_D2_extracted.fasta') ), 
+                                         shell=True)
+        
 
     def cry_3D_ids_extractor(self):
         """
@@ -388,8 +443,14 @@ class CryProcessor:
                                     ind=j
                             self.coordinate_dict[name_key].extend(pre_dict[name_key]['D'+str(i)][ind:ind+2])
                 for key in self.coordinate_dict:
+                    if int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][0])>75 and int(self.coordinate_dict[key][3]) - int(self.coordinate_dict[key][2])>75 and int(self.coordinate_dict[key][5]) - int(self.coordinate_dict[key][4])>75:
+                        if int(self.coordinate_dict[key][4]) <= int(self.coordinate_dict[key][3]) and int(self.coordinate_dict[key][3]) - int(self.coordinate_dict[key][4]) <=55:
+                            self.coordinate_dict[key][3]=int(self.coordinate_dict[key][3])-(int(self.coordinate_dict[key][3]) - int(self.coordinate_dict[key][4]))-2
+                        if int(self.coordinate_dict[key][2]) <= int(self.coordinate_dict[key][1]) and int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][2]) <=55:
+                            self.coordinate_dict[key][2]=int(self.coordinate_dict[key][2])+(int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][2]))+2
+                for key in self.coordinate_dict:
                     #check if the sequece with all 3 domains is growing monotonically
-                    if all(int(x)<int(y) for x, y in zip(self.coordinate_dict[key], self.coordinate_dict[key][1:])):
+                    if all(int(x)<int(y) for x, y in zip(self.coordinate_dict[key], self.coordinate_dict[key][1:])) and int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][0])>75 and int(self.coordinate_dict[key][3]) - int(self.coordinate_dict[key][2])>70:
                         final_id_list.append(key)
                 #create records for the full and processed sequences with 3 domains
                 new_rec_list=list()   
@@ -555,7 +616,7 @@ class CryProcessor:
                                     ind=j
                             self.coordinate_dict[name_key].extend(pre_dict[name_key]['D'+str(i)][ind:ind+2])
                 for key in self.coordinate_dict:
-                    if all(int(x)<int(y) for x, y in zip(self.coordinate_dict[key], self.coordinate_dict[key][1:])):
+                    if all(int(x)<int(y) for x, y in zip(self.coordinate_dict[key], self.coordinate_dict[key][1:])) and int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][0])>75:
                         final_id_list.append(key)
                 new_rec_list=list()   
                 full_rec_list=list()
@@ -897,13 +958,12 @@ class CryProcessor:
                                                       'cry_extraction',
                                                       '{}.fasta'.format(
                                                       self.cry_query.split('/')[len(self.cry_query.split('/'))-1].split('.')[0])),
-                                                      "fasta",os.path.join(
+                                                      os.path.join(
                                                       os.path.realpath(
                                                       self.query_dir),
                                                       'cry_extraction',
                                                       'first_search_{}.fasta'.format(
-                                                      self.cry_query.split('/')[len(self.cry_query.split('/'))-1].split('.')[0])),
-                                                      "fasta"),
+                                                      self.cry_query.split('/')[len(self.cry_query.split('/'))-1].split('.')[0]))),
                                                shell=True)
         if not self.nucl_type and not self.annot_flag:
             cmd_clean_up = subprocess.call('cd {0}; \
