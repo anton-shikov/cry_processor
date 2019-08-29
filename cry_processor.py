@@ -13,6 +13,7 @@ import sys
 import re
 import logging
 import copy
+import datetime
 
  
 class CryProcessor:
@@ -30,7 +31,8 @@ class CryProcessor:
                  meta_flag,
                  forw,
                  rev,
-                 silent_mode):
+                 silent_mode, 
+                 force_mode):
         #initialize the logger
         self.logger = logging.getLogger("cry_processor")
         self.logger.setLevel(logging.INFO)
@@ -66,6 +68,10 @@ class CryProcessor:
         self.racer_flag = 0
         self.hmmer_result_flag = 0 
         self.silent_mode = silent_mode
+        self.force_mode = force_mode
+        if not self.force_mode:
+            if os.path.exists(os.path.realpath(self.query_dir)):
+                self.query_dir = self.query_dir + "_"+ str(datetime.datetime.now()).split('.')[0].replace(' ', '_').replace(':', '_')
         #creating output directories
         cmd_init = subprocess.call('if [ ! -d {0} ]; \
                                      then mkdir {0}; \
@@ -309,7 +315,7 @@ class CryProcessor:
         mearging_cmd = subprocess.call("cd {0}; ls | grep '*fasta';\
                                          cat $(ls | grep -E '*(_D2_extracted|_cry31|_long_32_11|_Endotoxin_mid|_Endotoxin_M|_extra|_cry_58).fasta') > tmp_2.fasta; \
                                          mv tmp_2.fasta {1};   \
-                                         fi".format(os.path.join(
+                                         ".format(os.path.join(
                                          os.path.realpath(
                                          self.query_dir),
                                          'domains'),
@@ -320,15 +326,21 @@ class CryProcessor:
         mearging_cmd = subprocess.call("cd {0};\
                                          cat $(ls | grep -E '*(_D3_extracted|_extra_3).fasta') > tmp_3.fasta; \
                                          mv tmp_3.fasta {1};   \
-                                         fi".format(os.path.join(
+                                         ".format(os.path.join(
                                          os.path.realpath(
                                          self.query_dir),
                                          'domains'),
                                          self.cry_query.split('/')[len(self.cry_query.split('/'))-1].split('.')[0]+ 
                                          '_D3_extracted.fasta'), 
                                          shell=True)
-        print(self.cry_query.split('/')[len(self.cry_query.split('/'))-1].split('.')[0]+'_D1_extracted.fasta')
 
+        cleaning_cmd = subprocess.call("cd {0};\
+                                         rm $(ls | grep -E '*(_cry31|_long_32_11|_Endotoxin_mid|_Endotoxin_M|_extra|_cry_58|_extra_3).(fasta|sto)')    \
+                                        ".format(os.path.join(
+                                         os.path.realpath(
+                                         self.query_dir),
+                                         'domains')), 
+                                         shell=True)
         exist_check_flag = re.sub("b",'',
                                   re.sub("\'",'', 
                                   str(subprocess.check_output("cd {0}; \
@@ -450,16 +462,28 @@ class CryProcessor:
                                     d=int(pre_dict[name_key]['D'+str(i)][j+1]) - int(pre_dict[name_key]['D'+str(i)][j])
                                     ind=j
                             self.coordinate_dict[name_key].extend(pre_dict[name_key]['D'+str(i)][ind:ind+2])
-                for key in self.coordinate_dict:
-                    if int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][0])>75 and int(self.coordinate_dict[key][3]) - int(self.coordinate_dict[key][2])>75 and int(self.coordinate_dict[key][5]) - int(self.coordinate_dict[key][4])>75:
-                        if int(self.coordinate_dict[key][4]) <= int(self.coordinate_dict[key][3]) and int(self.coordinate_dict[key][3]) - int(self.coordinate_dict[key][4]) <=55:
-                            self.coordinate_dict[key][3]=int(self.coordinate_dict[key][3])-(int(self.coordinate_dict[key][3]) - int(self.coordinate_dict[key][4]))-2
-                        if int(self.coordinate_dict[key][2]) <= int(self.coordinate_dict[key][1]) and int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][2]) <=55:
-                            self.coordinate_dict[key][2]=int(self.coordinate_dict[key][2])+(int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][2]))+2
-                for key in self.coordinate_dict:
-                    #check if the sequece with all 3 domains is growing monotonically
-                    if all(int(x)<int(y) for x, y in zip(self.coordinate_dict[key], self.coordinate_dict[key][1:])) and int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][0])>75 and int(self.coordinate_dict[key][3]) - int(self.coordinate_dict[key][2])>70 and int(self.coordinate_dict[key][5]) - int(self.coordinate_dict[key][4])>70:
-                        final_id_list.append(key)
+
+                if self.processing_flag=='1':
+                    for key in self.coordinate_dict:
+                        if int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][0])>75 and int(self.coordinate_dict[key][3]) - int(self.coordinate_dict[key][2])>75 and int(self.coordinate_dict[key][5]) - int(self.coordinate_dict[key][4])>75:
+                            if int(self.coordinate_dict[key][4]) <= int(self.coordinate_dict[key][3]) and int(self.coordinate_dict[key][3]) - int(self.coordinate_dict[key][4]) <=55:
+                                self.coordinate_dict[key][3]=int(self.coordinate_dict[key][3])-(int(self.coordinate_dict[key][3]) - int(self.coordinate_dict[key][4]))-2
+                            if int(self.coordinate_dict[key][2]) <= int(self.coordinate_dict[key][1]) and int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][2]) <=55:
+                                self.coordinate_dict[key][2]=int(self.coordinate_dict[key][2])+(int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][2]))+2
+                    for key in self.coordinate_dict:
+                        #check if the sequece with all 3 domains is growing monotonically
+                        if all(int(x)<int(y) for x, y in zip(self.coordinate_dict[key], self.coordinate_dict[key][1:])) and int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][0])>75 and int(self.coordinate_dict[key][3]) - int(self.coordinate_dict[key][2])>70 and int(self.coordinate_dict[key][5]) - int(self.coordinate_dict[key][4])>70:
+                            final_id_list.append(key)
+
+                if self.processing_flag=='2':
+                    for key in self.coordinate_dict:
+                        if int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][0])>75 and int(self.coordinate_dict[key][3]) - int(self.coordinate_dict[key][2])>75:
+                            if int(self.coordinate_dict[key][2]) <= int(self.coordinate_dict[key][1]) and int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][2]) <=55:
+                                self.coordinate_dict[key][2]=int(self.coordinate_dict[key][2])+(int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][2]))+2
+                    for key in self.coordinate_dict:
+                        #check if the sequece with all 3 domains is growing monotonically
+                        if all(int(x)<int(y) for x, y in zip(self.coordinate_dict[key], self.coordinate_dict[key][1:])) and int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][0])>75 and int(self.coordinate_dict[key][3]) - int(self.coordinate_dict[key][2])>70:
+                            final_id_list.append(key)
                 #create records for the full and processed sequences with 3 domains
                 new_rec_list=list()   
                 full_rec_list=list()
@@ -614,9 +638,29 @@ class CryProcessor:
                                     d=int(pre_dict[name_key]['D'+str(i)][j+1]) - int(pre_dict[name_key]['D'+str(i)][j])
                                     ind=j
                             self.coordinate_dict[name_key].extend(pre_dict[name_key]['D'+str(i)][ind:ind+2])
-                for key in self.coordinate_dict:
-                    if all(int(x)<int(y) for x, y in zip(self.coordinate_dict[key], self.coordinate_dict[key][1:])) and int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][0])>75:
-                        final_id_list.append(key)
+
+                if self.processing_flag=='1':
+                    for key in self.coordinate_dict:
+                        if int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][0])>75 and int(self.coordinate_dict[key][3]) - int(self.coordinate_dict[key][2])>75 and int(self.coordinate_dict[key][5]) - int(self.coordinate_dict[key][4])>75:
+                            if int(self.coordinate_dict[key][4]) <= int(self.coordinate_dict[key][3]) and int(self.coordinate_dict[key][3]) - int(self.coordinate_dict[key][4]) <=55:
+                                self.coordinate_dict[key][3]=int(self.coordinate_dict[key][3])-(int(self.coordinate_dict[key][3]) - int(self.coordinate_dict[key][4]))-2
+                            if int(self.coordinate_dict[key][2]) <= int(self.coordinate_dict[key][1]) and int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][2]) <=55:
+                                self.coordinate_dict[key][2]=int(self.coordinate_dict[key][2])+(int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][2]))+2
+                    for key in self.coordinate_dict:
+                        #check if the sequece with all 3 domains is growing monotonically
+                        if all(int(x)<int(y) for x, y in zip(self.coordinate_dict[key], self.coordinate_dict[key][1:])) and int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][0])>75 and int(self.coordinate_dict[key][3]) - int(self.coordinate_dict[key][2])>70 and int(self.coordinate_dict[key][5]) - int(self.coordinate_dict[key][4])>70:
+                            final_id_list.append(key)
+
+                if self.processing_flag=='2':
+                    for key in self.coordinate_dict:
+                        if int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][0])>75 and int(self.coordinate_dict[key][3]) - int(self.coordinate_dict[key][2])>75:
+                            if int(self.coordinate_dict[key][2]) <= int(self.coordinate_dict[key][1]) and int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][2]) <=55:
+                                self.coordinate_dict[key][2]=int(self.coordinate_dict[key][2])+(int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][2]))+2
+                    for key in self.coordinate_dict:
+                        #check if the sequece with all 3 domains is growing monotonically
+                        if all(int(x)<int(y) for x, y in zip(self.coordinate_dict[key], self.coordinate_dict[key][1:])) and int(self.coordinate_dict[key][1]) - int(self.coordinate_dict[key][0])>75 and int(self.coordinate_dict[key][3]) - int(self.coordinate_dict[key][2])>70:
+                            final_id_list.append(key)
+
                 new_rec_list=list()   
                 full_rec_list=list()
                 dummy_dict = copy.deepcopy(self.coordinate_dict)
@@ -1516,7 +1560,7 @@ class CryProcessor:
                                    then awk \'/^>/{{print \">seq\" ++i; next}}{{print}}\' mearged.fasta > tmp ;\
                                    rm mearged.fasta;\
                                    mv tmp mearged.fasta;\
-                                   echo 'done';\
+                                   echo 'gfa file analysis done';\
                                    fi".format(os.path.join(
                                            os.path.realpath(
                                            self.query_dir),
@@ -1596,7 +1640,7 @@ class CryProcessor:
 class Crylauncher:
     def __init__(self):
         pass
-    def LaunchProcessor(od,fi,hm,pr,th, ma, r, a, nu, mra,k,fr,rr,meta,s):
+    def LaunchProcessor(od,fi,hm,pr,th, ma, r, a, nu, mra,k,fr,rr,meta,s,f):
     #check if the input file exists
         if fi:
             if not os.path.isfile(fi):
@@ -1624,7 +1668,7 @@ class Crylauncher:
             elif not os.path.isfile(fr):
                 raise Exception('The File with forward reads does not exists')
         #initialize CryProcessor class
-        cr = CryProcessor(od, fi, hm,pr, th, ma, r, nu,a,k,meta,fr,rr,s)
+        cr = CryProcessor(od, fi, hm,pr, th, ma, r, nu,a,k,meta,fr,rr,s,f)
         if not mra and not fr:
             #pipeline for the protein fasta file
             cr.cry_digestor()
@@ -1646,7 +1690,8 @@ class Crylauncher:
                               od),
                               'pathracer_output',
                               'mearged.fasta')
-                cr = CryProcessor(od, fi, hm,pr, th, ma, r, nu,a,k,meta,fr,rr,s)
+                f=True
+                cr = CryProcessor(od, fi, hm,pr, th, ma, r, nu,a,k,meta,fr,rr,s,f)
                 cr.cry_digestor()
                 if cr.hmmer_result_flag != 1:
                     cr.annotate_raw_output()
@@ -1669,7 +1714,8 @@ class Crylauncher:
                           od),
                           'assembly',
                           'assembly_graph_with_scaffolds.gfa') 
-            cr = CryProcessor(od, fi, hm,pr, th, ma, r, nu,a,k,meta,fr,rr,s)
+            f=True
+            cr = CryProcessor(od, fi, hm,pr, th, ma, r, nu,a,k,meta,fr,rr,s,f)
             cr.launch_racer(k)
             if cr.racer_flag != 1:
                 fi = os.path.join(
@@ -1677,7 +1723,8 @@ class Crylauncher:
                               od),
                               'pathracer_output',
                               'mearged.fasta')
-                cr = CryProcessor(od, fi, hm,pr, th, ma, r, nu,a,k,meta,fr,rr,s)
+                f=True
+                cr = CryProcessor(od, fi, hm,pr, th, ma, r, nu,a,k,meta,fr,rr,s,f)
                 cr.cry_digestor()
                 if cr.hmmer_result_flag != 1:
                     cr.annotate_raw_output()
@@ -1770,14 +1817,18 @@ if __name__ == '__main__':
                         help='The k-mer size for PathRacer', 
                         metavar='Int',
                         type=str, 
-                        default=55)
+                        default=21)
     parser.add_argument('--silent',
                         '-s', 
                         action='store_true',
                         help='The silent mode')
+    parser.add_argument('--force',
+                        '-f', 
+                        action='store_true',
+                        help='forced directory overwriting')
 
     parser.set_defaults(feature=True)
     args = parser.parse_args()
-    od,fi,hm,pr,th, ma, r, a, nu, mra,k,fr,rr,meta,s = args.od, args.fi, args.hm, args.pr,args.th, args.ma, args.r, args.annotate, args.nu,args.pathracer,args.k,args.fo,args.re,args.meta,args.silent
-    Crylauncher.LaunchProcessor(od,fi,hm,pr,th, ma, r, a, nu, mra,k,fr,rr,meta,s)
+    od,fi,hm,pr,th, ma, r, a, nu, mra,k,fr,rr,meta,s,f = args.od, args.fi, args.hm, args.pr,args.th, args.ma, args.r, args.annotate, args.nu,args.pathracer,args.k,args.fo,args.re,args.meta,args.silent,args.force
+    Crylauncher.LaunchProcessor(od,fi,hm,pr,th, ma, r, a, nu, mra,k,fr,rr,meta,s,f)
 
